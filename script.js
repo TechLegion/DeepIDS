@@ -1,4 +1,4 @@
-// ===== DeepIDS v2.0 - XGBoost Integrated Backend =====
+// ===== DeepIDS v2.0 - Gradient Boosting Integrated Backend =====
 
 // Auto-detect API base: relative in prod (Railway), localhost in dev
 const API_BASE = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
@@ -30,7 +30,7 @@ document.addEventListener('DOMContentLoaded', function() {
 // ============================================
 function getFeatures() {
     return {
-        protocol: document.getElementById('protocol').value,
+        protocol_type: document.getElementById('protocol').value,
         service: document.getElementById('service').value,
         flag: document.getElementById('flag').value,
         duration: parseFloat(document.getElementById('duration').value) || 0,
@@ -56,7 +56,7 @@ async function detectIntrusion() {
         <div class="placeholder-state">
             <div class="radar-scan"></div>
             <h3 style="color: var(--accent);">Processing Network Telemetry...</h3>
-            <p>Running highly-optimized XGBoost inference model</p>
+            <p>Running highly-optimized Gradient Boosting inference model</p>
         </div>
     `;
 
@@ -100,17 +100,12 @@ function displayResult(result, features) {
     const confidence = Math.round(result.confidence * 100);
     const timestamp = new Date().toLocaleString();
 
-    const attackLabels = {
-        'attack': 'Intrusion Detected',
-        'normal': 'Normal Traffic'
-    };
-
     const statusIcon = isAttack ? '⚠️' : '✅';
     const statusColor = isAttack ? 'var(--danger)' : 'var(--success)';
     const statusGlow = isAttack ? 'var(--danger-glow)' : 'var(--success-glow)';
 
     const traceItems = isAttack 
-        ? ['Anomalous packet sequence detected', 'XGBoost model classifies signature as malicious']
+        ? ['Anomalous packet signature identified', `Model: ${result.description || 'Gradient Boosting threat category classification'}`]
         : ['Feature vector aligns with baseline normal traffic', 'No known attack signatures identified'];
 
     let html = `
@@ -118,7 +113,7 @@ function displayResult(result, features) {
             <div class="result-title">
                 <span style="font-size: 2.5rem;">${statusIcon}</span>
                 <div>
-                    <h3 style="color: ${statusColor};">${attackLabels[result.prediction] || result.prediction.toUpperCase()}</h3>
+                    <h3 style="color: ${statusColor};">${result.label || result.prediction.toUpperCase()}</h3>
                     <p style="margin-top: 5px;">AI Confidence: <span style="font-weight: 800; color: #fff;">${confidence}%</span></p>
                 </div>
             </div>
@@ -176,7 +171,14 @@ function displayResult(result, features) {
                 labels: labels,
                 datasets: [{
                     data: data,
-                    backgroundColor: labels.map(l => l === 'NORMAL' ? 'rgba(0, 184, 148, 0.8)' : 'rgba(255, 118, 117, 0.8)'),
+                    backgroundColor: labels.map(l => {
+                        if (l === 'NORMAL') return 'rgba(0, 184, 148, 0.8)';
+                        if (l === 'DOS') return 'rgba(255, 118, 117, 0.8)';
+                        if (l === 'PROBE') return 'rgba(253, 203, 110, 0.8)';
+                        if (l === 'R2L') return 'rgba(224, 86, 253, 0.8)';
+                        if (l === 'U2R') return 'rgba(9, 132, 227, 0.8)';
+                        return 'rgba(108, 92, 231, 0.8)';
+                    }),
                     borderColor: 'rgba(18, 18, 25, 1)',
                     borderWidth: 4,
                     hoverOffset: 10
@@ -210,7 +212,7 @@ function handleCSVUpload(input) {
         <div class="placeholder-state">
             <div class="radar-scan"></div>
             <h3 style="color: var(--accent);">Processing Batch Telemetry...</h3>
-            <p>Analyzing network packets against XGBoost baseline</p>
+            <p>Analyzing network packets against Gradient Boosting baseline</p>
         </div>
     `;
 
@@ -241,7 +243,7 @@ function handleCSVUpload(input) {
                 record[headers[j]] = values[j];
             }
             batchData.push({
-                protocol: record.protocol,
+                protocol_type: record.protocol || record.protocol_type,
                 service: record.service,
                 flag: record.flag,
                 duration: parseFloat(record.duration) || 0,
