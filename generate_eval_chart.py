@@ -7,6 +7,7 @@ import matplotlib.gridspec as gridspec
 from matplotlib.colors import LinearSegmentedColormap
 import warnings
 warnings.filterwarnings('ignore')
+import joblib
 
 from sklearn.preprocessing import LabelEncoder, StandardScaler
 from sklearn.model_selection import train_test_split
@@ -48,65 +49,87 @@ def categorise(x):
 
 df['category'] = df['attack'].apply(categorise)
 
-# Stratified sample to speed up drawing/training process for evaluation chart
-sampled_dfs = []
-for cat in df['category'].unique():
-    cat_df = df[df['category'] == cat]
-    sampled_dfs.append(cat_df.sample(min(len(cat_df), 10000), random_state=42))
-df_sample = pd.concat(sampled_dfs, ignore_index=True)
-
 feature_cols = [c for c in columns if c not in ('attack', 'level', 'category')]
-X = df_sample[feature_cols].copy()
-y = df_sample['category']
+X = df[feature_cols].copy()
+y = df['category']
 
-le_protocol = LabelEncoder()
-le_service  = LabelEncoder()
-le_flag     = LabelEncoder()
-le_target   = LabelEncoder()
+# Load actual encoders and scaler used by the deployed model
+print("Loading trained encoders and scaler...")
+le_protocol = joblib.load("models/le_protocol.pkl")
+le_service  = joblib.load("models/le_service.pkl")
+le_flag     = joblib.load("models/le_flag.pkl")
+le_target   = joblib.load("models/le_target.pkl")
+scaler      = joblib.load("models/scaler.pkl")
 
-X['protocol_type'] = le_protocol.fit_transform(X['protocol_type'])
-X['service']       = le_service.fit_transform(X['service'])
-X['flag']          = le_flag.fit_transform(X['flag'])
-y_enc              = le_target.fit_transform(y)
+X['protocol_type'] = le_protocol.transform(X['protocol_type'])
+X['service']       = le_service.transform(X['service'])
+X['flag']          = le_flag.transform(X['flag'])
+y_enc              = le_target.transform(y)
 class_names        = list(le_target.classes_)   # ['dos', 'normal', 'probe', 'r2l', 'u2r']
 
-scaler  = StandardScaler()
-X_sc    = scaler.fit_transform(X)
+X_sc = scaler.transform(X)
 
 X_train, X_test, y_train, y_test = train_test_split(
     X_sc, y_enc, test_size=0.2, random_state=42, stratify=y_enc)
 
-# Apply SMOTE to training set to balance classes
-print("Applying SMOTE...")
-smote = SMOTE(random_state=42, k_neighbors=3)
+# Apply SMOTE to training set to balance classes (same as train_model.py)
+print("Applying SMOTE on full training set...")
+smote = SMOTE(random_state=42, k_neighbors=5)
 X_train_sm, y_train_sm = smote.fit_resample(X_train, y_train)
 
-# ── Train Models ──────────────────────────────────────────
-models = {
-    'Gradient Boosting': GradientBoostingClassifier(
-        n_estimators=40, learning_rate=0.1, max_depth=4, random_state=42),
-    'Random Forest': RandomForestClassifier(
-        n_estimators=40, random_state=42, n_jobs=-1),
-    'Decision Tree': DecisionTreeClassifier(
-        max_depth=8, random_state=42),
-}
-
+# ── Evaluate / Train Models ──────────────────────────────
 results = {}
-for name, model in models.items():
-    print(f"Training {name}...")
-    model.fit(X_train_sm, y_train_sm)
-    preds = model.predict(X_test)
-    results[name] = {
-        'preds':     preds,
-        'accuracy':  accuracy_score(y_test, preds),
-        'precision': precision_score(y_test, preds, average='weighted', zero_division=0),
-        'recall':    recall_score(y_test, preds, average='weighted', zero_division=0),
-        'f1':        f1_score(y_test, preds, average='weighted', zero_division=0),
-        'cm':        confusion_matrix(y_test, preds),
-        'report':    classification_report(y_test, preds, target_names=class_names,
-                                           output_dict=True, zero_division=0),
-    }
-    print(f"  Accuracy={results[name]['accuracy']:.4f}  F1={results[name]['f1']:.4f}")
+
+# 1. Gradient Boosting: Load the pre-trained deployed model from disk
+print("Loading deployed Gradient Boosting model...")
+gb_model = joblib.load("models/gb_model.pkl")
+print("Evaluating Gradient Boosting on true test split...")
+gb_preds = gb_model.predict(X_test)
+results['Gradient Boosting'] = {
+    'preds':     gb_preds,
+    'accuracy':  accuracy_score(y_test, gb_preds),
+    'precision': precision_score(y_test, gb_preds, average='weighted', zero_division=0),
+    'recall':    recall_score(y_test, gb_preds, average='weighted', zero_division=0),
+    'f1':        f1_score(y_test, gb_preds, average='weighted', zero_division=0),
+    'cm':        confusion_matrix(y_test, gb_preds),
+    'report':    classification_report(y_test, gb_preds, target_names=class_names,
+                                       output_dict=True, zero_division=0),
+}
+print(f"  Accuracy={results['Gradient Boosting']['accuracy']:.4f}  F1={results['Gradient Boosting']['f1']:.4f}")
+
+# 2. Random Forest: Train on the full upsampled training set
+print("Training Random Forest on full upsampled training set...")
+rf_model = RandomForestClassifier(n_estimators=40, random_state=42, n_jobs=-1)
+rf_model.fit(X_train_sm, y_train_sm)
+rf_preds = rf_model.predict(X_test)
+results['Random Forest'] = {
+    'preds':     rf_preds,
+    'accuracy':  accuracy_score(y_test, rf_preds),
+    'precision': precision_score(y_test, rf_preds, average='weighted', zero_division=0),
+    'recall':    recall_score(y_test, rf_preds, average='weighted', zero_division=0),
+    'f1':        f1_score(y_test, rf_preds, average='weighted', zero_division=0),
+    'cm':        confusion_matrix(y_test, rf_preds),
+    'report':    classification_report(y_test, rf_preds, target_names=class_names,
+                                       output_dict=True, zero_division=0),
+}
+print(f"  Accuracy={results['Random Forest']['accuracy']:.4f}  F1={results['Random Forest']['f1']:.4f}")
+
+# 3. Decision Tree: Train on the full upsampled training set
+print("Training Decision Tree on full upsampled training set...")
+dt_model = DecisionTreeClassifier(max_depth=8, random_state=42)
+dt_model.fit(X_train_sm, y_train_sm)
+dt_preds = dt_model.predict(X_test)
+results['Decision Tree'] = {
+    'preds':     dt_preds,
+    'accuracy':  accuracy_score(y_test, dt_preds),
+    'precision': precision_score(y_test, dt_preds, average='weighted', zero_division=0),
+    'recall':    recall_score(y_test, dt_preds, average='weighted', zero_division=0),
+    'f1':        f1_score(y_test, dt_preds, average='weighted', zero_division=0),
+    'cm':        confusion_matrix(y_test, dt_preds),
+    'report':    classification_report(y_test, dt_preds, target_names=class_names,
+                                       output_dict=True, zero_division=0),
+}
+print(f"  Accuracy={results['Decision Tree']['accuracy']:.4f}  F1={results['Decision Tree']['f1']:.4f}")
 
 best_name = max(results, key=lambda k: results[k]['f1'])
 print(f"\nBest model: {best_name}")

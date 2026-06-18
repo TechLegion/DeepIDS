@@ -140,8 +140,8 @@ info = [
     ('MISSING VALUES',  '0'),
     ('DUPLICATES',      '0 (vs KDD99)'),
     ('ATTACK CLASSES',  '4  (DoS, Probe, R2L, U2R)'),
-    ('MODEL TASK',      'Binary Classification'),
-    ('BALANCE STATUS',  'BALANCED (No SMOTE req.)'),
+    ('MODEL TASK',      '5-Class Classification'),
+    ('BALANCE STATUS',  'IMBALANCED (SMOTE applied)'),
 ]
 y_pos = 0.96
 for label, val in info:
