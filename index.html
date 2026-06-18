@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IDS | Neural Intrusion Detection</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=JetBrains+Mono&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css?v=4">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="background-grid"></div>
+    <div class="glow-orb orb-1"></div>
+    <div class="glow-orb orb-2"></div>
+
+    <div class="app-container">
+        <header class="app-header">
+            <div class="logo">
+                <div class="logo-icon"></div>
+                <h1>DeepIDS <span>v2.0</span></h1>
+            </div>
+            <p>Advanced XGBoost Network Intrusion Detection System</p>
+        </header>
+
+        <main class="dashboard">
+            <!-- Left Panel: Controls -->
+            <section class="panel controls-panel glass-panel">
+                <h2><i class="icon"></i> Network Packet Data</h2>
+                <form id="detect-form">
+                    <div class="input-grid">
+                        <div class="input-group">
+                            <label>Protocol Type</label>
+                            <select id="protocol" name="protocol">
+                                <option value="tcp">TCP</option>
+                                <option value="udp">UDP</option>
+                                <option value="icmp">ICMP</option>
+                            </select>
+                        </div>
+                        <div class="input-group">
+                            <label>Service</label>
+                            <select id="service" name="service">
+                                <option value="http">HTTP</option>
+                                <option value="smtp">SMTP</option>
+                                <option value="ftp">FTP</option>
+                                <option value="private">PRIVATE</option>
+                                <option value="domain">DOMAIN</option>
+                                <option value="other">OTHER</option>
+                            </select>
+                        </div>
+                        <div class="input-group">
+                            <label>Connection Flag</label>
+                            <select id="flag" name="flag">
+                                <option value="SF">SF (Normal)</option>
+                                <option value="S0">S0 (Connection Attempt)</option>
+                                <option value="REJ">REJ (Rejected)</option>
+                                <option value="RSTR">RSTR (Reset)</option>
+                                <option value="OTHER">OTHER</option>
+                            </select>
+                        </div>
+                        <div class="input-group">
+                            <label>Duration (s)</label>
+                            <input type="number" id="duration" value="0" min="0">
+                        </div>
+                        <div class="input-group">
+                            <label>Source Bytes</label>
+                            <input type="number" id="src_bytes" value="491" min="0">
+                        </div>
+                        <div class="input-group">
+                            <label>Dest Bytes</label>
+                            <input type="number" id="dst_bytes" value="0" min="0">
+                        </div>
+                        <div class="input-group">
+                            <label>Count</label>
+                            <input type="number" id="count" value="2" min="0" step="1">
+                        </div>
+                        <div class="input-group">
+                            <label>SYN Error Rate</label>
+                            <input type="number" id="serror_rate" value="0.0" min="0" max="1" step="0.01">
+                        </div>
+                        <div class="input-group">
+                            <label>Dest Host Count</label>
+                            <input type="number" id="dst_host_count" value="150" min="0">
+                        </div>
+                    </div>
+
+                    <div class="action-buttons">
+                        <button type="submit" id="detect-btn" class="primary-btn">
+                            <span class="btn-text">INITIALIZE SCAN</span>
+                            <span class="btn-glow"></span>
+                        </button>
+                        
+                        <div class="upload-wrapper">
+                            <input type="file" id="csv-upload" accept=".csv" class="hidden-input" onchange="handleCSVUpload(this)">
+                            <label for="csv-upload" class="secondary-btn">BATCH CSV UPLOAD</label>
+                        </div>
+                    </div>
+                </form>
+            </section>
+
+            <!-- Right Panel: Results -->
+            <section class="panel results-panel glass-panel">
+                <h2>Analysis Results</h2>
+                
+                <div class="results-wrapper">
+                    <div id="result-container">
+                        <div class="placeholder-state" id="placeholder-content">
+                            <div class="radar-scan"></div>
+                            <h3>Awaiting Telemetry</h3>
+                            <p>Input network features or upload a batch CSV to begin real-time XGBoost threat analysis.</p>
+                        </div>
+                    </div>
+
+                    <div class="chart-container" id="chart-container" style="display: none; margin-top: 20px;">
+                        <canvas id="probabilityChart"></canvas>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script src="script.js?v=4"></script>
+</body>
+</html>

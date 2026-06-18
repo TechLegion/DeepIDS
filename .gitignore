@@ -1,0 +1,35 @@
+# Python
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Dataset files (large, not needed in repo - models are pre-trained)
+*.txt
+*.arff
+*.csv
+!requirements.txt
+
+# Jupyter Notebooks (optional - comment out if you want to include)
+# *.ipynb
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# Scratch files
+download_dataset.py
+scratch_notebook.py
+nsl-kdd/
