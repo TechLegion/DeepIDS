@@ -11,3 +11,5 @@ python-multipart==0.0.32
 aiofiles==25.1.0
 imbalanced-learn
 python-docx
+shap
+matplotlib

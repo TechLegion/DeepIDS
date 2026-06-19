@@ -8,6 +8,7 @@ import pandas as pd
 import joblib
 from typing import List, Optional
 import os
+import shap
 
 app = FastAPI(title="DeepIDS - Intrusion Detection API")
 
@@ -28,6 +29,7 @@ LE_FLAG      = None
 LE_TARGET    = None
 CLASS_NAMES  = None
 FEATURE_COLS = None
+EXPLAINER    = None
 
 @app.on_event("startup")
 def load_models():
@@ -46,6 +48,13 @@ def load_models():
     CLASS_NAMES  = joblib.load("models/class_names.pkl")
     FEATURE_COLS = joblib.load("models/feature_cols.pkl")
     print(f"Models loaded. Classes: {CLASS_NAMES}")
+    
+    print("Initializing SHAP Explainer...")
+    global EXPLAINER
+    # Using KernelExplainer because TreeExplainer doesn't support sklearn multiclass GBC
+    background = np.zeros((1, len(FEATURE_COLS)))
+    EXPLAINER = shap.KernelExplainer(MODEL.predict_proba, background)
+    print("SHAP Explainer initialized.")
 
 # ---------------------------------------------------------
 # REQUEST SCHEMAS
@@ -183,6 +192,32 @@ def make_prediction(data: PredictionRequest):
     confidence = float(proba[pred_idx])
     probabilities = {CLASS_NAMES[i]: float(proba[i]) for i in range(len(CLASS_NAMES))}
 
+    # Calculate SHAP values for the single instance
+    shap_values = EXPLAINER.shap_values(X)
+    
+    # Handle both single array (3D) and list of arrays (2D per class)
+    if isinstance(shap_values, list):
+        class_shap_values = shap_values[pred_idx][0]
+    elif len(np.shape(shap_values)) == 3:
+        class_shap_values = shap_values[0, :, pred_idx]
+    else:
+        # Fallback
+        class_shap_values = shap_values[0] if len(np.shape(shap_values)) == 2 else shap_values[0, :]
+        
+    # Extract feature impacts
+    feature_impacts = []
+    for i, col in enumerate(FEATURE_COLS):
+        val = class_shap_values[i]
+        feature_impacts.append({
+            "feature": col,
+            "value": float(val),
+            "abs_value": abs(float(val))
+        })
+        
+    # Sort by absolute impact to find the most influential features
+    feature_impacts.sort(key=lambda x: x["abs_value"], reverse=True)
+    top_features = feature_impacts[:3]
+
     return {
         "prediction":   prediction,
         "label":        CATEGORY_LABELS.get(prediction, prediction.upper()),
@@ -190,6 +225,7 @@ def make_prediction(data: PredictionRequest):
         "probabilities": probabilities,
         "description":  ATTACK_DESCRIPTIONS.get(prediction, ''),
         "is_attack":    prediction != 'normal',
+        "explanation":  top_features
     }
 
 @app.post("/predict")

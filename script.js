@@ -134,6 +134,21 @@ function displayResult(result, features) {
             </div>
         </div>
 
+        ${result.explanation ? `
+        <div class="shap-explanation" style="margin-top: 15px; margin-bottom: 15px; padding: 15px; background: rgba(0,0,0,0.2); border-radius: 8px; border-left: 2px solid ${statusColor};">
+            <h4><span style="color: ${statusColor}">■</span> AI Decision Drivers</h4>
+            <div style="font-size: 0.85em; margin-top: 5px; margin-bottom: 10px; color: #8a8a9e;">Top contributing features based on SHAP values:</div>
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+                ${result.explanation.map(f => `
+                    <div style="display: flex; justify-content: space-between; font-family: 'JetBrains Mono', monospace; font-size: 0.9em;">
+                        <span style="color: #f0f0f5;">${f.feature}</span>
+                        <span style="color: ${f.value > 0 ? 'var(--danger)' : 'var(--success)'}">${f.value > 0 ? '+' : ''}${f.value.toFixed(4)}</span>
+                    </div>
+                `).join('')}
+            </div>
+        </div>
+        ` : ''}
+
         <div class="recommendation-box" style="border-color: ${statusColor}; box-shadow: inset 0 0 20px ${statusGlow};">
             <div class="rec-label">RECOMMENDED SYSTEM ACTION</div>
             <div class="rec-action" style="color: ${statusColor}">
